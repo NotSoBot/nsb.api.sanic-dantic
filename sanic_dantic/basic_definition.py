@@ -61,10 +61,10 @@ class DanticModelObj:
                         "model must inherited from Pydantic.BaseModel"
                     )
 
-            if error and SanicException not in getmro(error):
+            if error and error is not True and not isinstance(error, FunctionType) and SanicException not in getmro(error)
                 raise AssertionError(
                     "sanic-dantic: " +
-                    "error must inherited from SanicException"
+                    "error must inherited from SanicException or True or a function"
                 )
 
         except AssertionError as e:
