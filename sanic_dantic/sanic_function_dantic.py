@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
-from typing import Callable, Type
+from typing import Callable, Type, Union
 
 from pydantic import ValidationError
 from sanic.exceptions import SanicException

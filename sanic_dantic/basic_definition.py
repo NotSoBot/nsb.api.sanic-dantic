@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from copy import deepcopy
 from inspect import getmro
-from typing import Callable, Type
+from typing import Callable, Type, Union
 from types import FunctionType
 
 from pydantic import BaseModel, ValidationError
