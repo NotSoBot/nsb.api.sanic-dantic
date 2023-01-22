@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from copy import deepcopy
 from inspect import getmro
-from typing import Type
+from typing import Callable, Type
+from types import FunctionType
 
 from pydantic import BaseModel, ValidationError
 from sanic.exceptions import InvalidUsage, ServerError, SanicException
@@ -29,7 +30,7 @@ class DanticModelObj:
             body: Type[BaseModel] = None,
             form: Type[BaseModel] = None,
             all: Type[BaseModel] = None,
-            error: Type[SanicException] = None,
+            error: Type[SanicException] | Callable[[ValidationError], None] | bool = None,
     ) -> None:
         """
         The param must be a BaseModel class or must inherit from BaseModel \n
@@ -82,7 +83,7 @@ def validate(
         body: Type[BaseModel] = None,
         form: Type[BaseModel] = None,
         all: Type[BaseModel] = None,
-        error: Type[SanicException] = None
+        error: Type[SanicException] | Callable[[ValidationError], None] | bool = None
 ) -> ParsedArgsObj:
     """
     When there are the same parameter name in the model,
@@ -146,6 +147,11 @@ def validate(
     except ValidationError as e:
         # error handler function of sanic_dantic  >  default InvalidUsage
         if error:
+            if error == True:
+                raise e
+            elif isinstance(error, FunctionType):
+                error(e)
+
             error_msg = e.errors()[0]
             message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
             raise error(message)

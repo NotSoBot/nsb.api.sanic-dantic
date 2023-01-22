@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
-from typing import Type
+from typing import Callable, Type
 
+from pydantic import ValidationError
 from sanic.exceptions import SanicException
 from sanic.request import Request
 
@@ -16,7 +17,7 @@ def parse_params(
         form: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
         all: Type[BaseModel] = None,
-        error: Type[SanicException] = None
+        error: Type[SanicException] | Callable[[ValidationError], None] | bool = None
 ):
     """
     Sanic Dantic Function View type check decorator, you can use it for any view
@@ -51,7 +52,7 @@ def parse_params(
                     form=form,
                     body=body,
                     all=all,
-                    error=error
+                    error=error or request.app.config.get('SANIC_DANTIC_ERROR', None),
                 )
                 params = validate(_request, **model_obj.items)
                 # if len(f.__qualname__.split(".")) == 1:
