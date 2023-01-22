@@ -17,7 +17,7 @@ def parse_params(
         form: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
         all: Type[BaseModel] = None,
-        error: Type[SanicException] | Callable[[ValidationError], None] | bool = None
+        error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None
 ):
     """
     Sanic Dantic Function View type check decorator, you can use it for any view

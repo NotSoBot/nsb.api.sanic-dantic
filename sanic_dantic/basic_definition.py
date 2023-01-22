@@ -30,7 +30,7 @@ class DanticModelObj:
             body: Type[BaseModel] = None,
             form: Type[BaseModel] = None,
             all: Type[BaseModel] = None,
-            error: Type[SanicException] | Callable[[ValidationError], None] | bool = None,
+            error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None,
     ) -> None:
         """
         The param must be a BaseModel class or must inherit from BaseModel \n
@@ -83,7 +83,7 @@ def validate(
         body: Type[BaseModel] = None,
         form: Type[BaseModel] = None,
         all: Type[BaseModel] = None,
-        error: Type[SanicException] | Callable[[ValidationError], None] | bool = None
+        error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None
 ) -> ParsedArgsObj:
     """
     When there are the same parameter name in the model,
