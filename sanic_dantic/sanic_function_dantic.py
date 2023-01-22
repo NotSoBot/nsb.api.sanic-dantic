@@ -15,6 +15,7 @@ def parse_params(
         query: Type[BaseModel] = None,
         form: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
+        all: Type[BaseModel] = None,
         error: Type[SanicException] = None
 ):
     """
@@ -49,6 +50,7 @@ def parse_params(
                     query=query,
                     form=form,
                     body=body,
+                    all=all,
                     error=error
                 )
                 params = validate(_request, **model_obj.items)

@@ -28,6 +28,7 @@ class DanticModelObj:
             path: Type[BaseModel] = None,
             body: Type[BaseModel] = None,
             form: Type[BaseModel] = None,
+            all: Type[BaseModel] = None,
             error: Type[SanicException] = None,
     ) -> None:
         """
@@ -48,10 +49,11 @@ class DanticModelObj:
                 "query": query,
                 "form": form,
                 "body": body,
+                "all": all,
                 "error": error
             }
 
-            for model in [header, path, query, form, body]:
+            for model in [header, path, query, form, body, all]:
                 if model and BaseModel not in getmro(model):
                     raise AssertionError(
                         "sanic-dantic: " +
@@ -79,6 +81,7 @@ def validate(
         path: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
         form: Type[BaseModel] = None,
+        all: Type[BaseModel] = None,
         error: Type[SanicException] = None
 ) -> ParsedArgsObj:
     """
@@ -112,6 +115,33 @@ def validate(
 
         elif body:
             parsed_args.update(body(**request.json).dict())
+
+
+        if all:
+            query_params = {
+                key: val[0]
+                if len(val) == 1 else val for key, val in request.args.items()
+            }
+            body_params = {}
+            try:
+                body_params = request.json
+                if not isinstance(body_params, dict):
+                    body_params = {}
+            except:
+                body_params = {
+                    key: val[0]
+                    if len(val) == 1 else val
+                    for key, val in request.form.items()
+                }
+
+
+            params = {}
+            params.update(request.headers)
+            params.update(request.match_info)
+            params.update(query_params)
+            params.update(body_params)
+
+            parsed_args.update(all(**params).dict())
 
     except ValidationError as e:
         # error handler function of sanic_dantic  >  default InvalidUsage
