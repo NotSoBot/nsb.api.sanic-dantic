@@ -58,10 +58,10 @@ def parse_params(
                 # if len(f.__qualname__.split(".")) == 1:
                 if path:
                     for key in path.__fields__:
-                        kwargs.pop(key)
+                        kwargs.pop(key, None)
                 if all:
                     for key in all.__fields__:
-                        kwargs.pop(key)
+                        kwargs.pop(key, None)
                 kwargs.update({"params": params})
             return await f(request, *args, **kwargs)
 
