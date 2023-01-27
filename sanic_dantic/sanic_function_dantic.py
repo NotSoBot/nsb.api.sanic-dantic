@@ -8,9 +8,9 @@ CreateTime:  2023-01-23
 """
 
 from functools import wraps
-from typing import Callable, Coroutine
-from typing import Type
+from typing import Callable, Coroutine, Type, Union
 
+from pydantic import ValidationError
 from sanic.request import Request
 
 from .basic_definition import BaseModel, DanticModelObj, validate
@@ -23,7 +23,8 @@ def parse_params(
         query: Type[BaseModel] = None,
         form: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
-        error: Type[Callable] = None
+        all: Type[BaseModel] = None,
+        error: Union[Callable[[ValidationError], None], bool] = None
 ):
     """
     parameter check decorator, can be used for function view and class view.
@@ -59,18 +60,19 @@ def parse_params(
                     query=query,
                     form=form,
                     body=body,
-                    error=error
+                    all=all,
+                    error=error or request.app.config.get('SANIC_DANTIC_ERROR', None),
                 )
                 parsed_args = validate(_request, model_obj)
                 if isinstance(parsed_args, Coroutine):
                     return await parsed_args
                 if path:
                     for key in path.__fields__:
-                        kwargs.pop(key)
-                kwargs.update({"params": parsed_args})
-                # set request.app.ctx to DanticView properties
-            for key, val in request.app.ctx.__dict__.items():
-                setattr(request.ctx, key, val)
+                        kwargs.pop(key, None)
+                if all:
+                    for key in all.__fields__:
+                        kwargs.pop(key, None)
+                kwargs.update({"params": params})
             return await f(request, *args, **kwargs)
 
         return decorated_function

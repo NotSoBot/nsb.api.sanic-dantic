@@ -9,8 +9,8 @@ CreateTime:  2023-01-23
 
 from copy import deepcopy
 from inspect import getmro
-from typing import Any, Callable
-from typing import Type
+from typing import Any, Callable, Type, Union
+
 
 from pydantic import BaseModel, ValidationError
 from sanic.exceptions import InvalidUsage, ServerError
@@ -52,7 +52,8 @@ class DanticModelObj:
             path: Type[BaseModel] = None,
             body: Type[BaseModel] = None,
             form: Type[BaseModel] = None,
-            error: Type[Callable] = None,
+            all: Type[BaseModel] = None,
+            error: Union[Callable[[ValidationError], None], bool] = None,
     ) -> None:
         """
         :param header: pydantic model for header
@@ -60,6 +61,7 @@ class DanticModelObj:
         :param path: pydantic model for path
         :param body: pydantic model for body
         :param form: pydantic model for form
+        :param all: pydantic model for all
         :param error: error handler function
 
         When there are the same parameter name in the model,
@@ -72,6 +74,7 @@ class DanticModelObj:
             self.path = path
             self.body = body
             self.form = form
+            self.all = all
             self.error = error
 
             if body and form:
@@ -80,17 +83,17 @@ class DanticModelObj:
                     "body and form cannot be used at the same time."
                 )
 
-            for model in [header, path, query, form, body]:
+            for model in [header, path, query, form, body, all]:
                 if model and BaseModel not in getmro(model):
                     raise AssertionError(
                         "sanic-dantic: " +
                         "model must inherited from Pydantic.BaseModel"
                     )
 
-            if error and not isinstance(error, Callable):
+            if error and error is not True and not isinstance(error, Callable):
                 raise AssertionError(
                     "sanic-dantic: " +
-                    "the error handler must be a callable function"
+                    "the error handler must be a callable function or True"
                 )
 
         except AssertionError as e:
@@ -137,14 +140,47 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
         elif dmo.body:
             parsed_args.update(dmo.body(**request.json).dict())
 
+
+        if all:
+            query_params = {
+                key: val[0]
+                if len(val) == 1 else val for key, val in request.args.items()
+            }
+            body_params = {}
+            try:
+                body_params = request.json
+                if not isinstance(body_params, dict):
+                    body_params = {}
+            except:
+                body_params = {
+                    key: val[0]
+                    if len(val) == 1 else val
+                    for key, val in request.form.items()
+                }
+
+
+            params = {}
+            params.update(request.headers)
+            params.update(request.match_info)
+            params.update(query_params)
+            params.update(body_params)
+
+            parsed_args.update(all(**params).dict())
+
     except ValidationError as e:
+        if dmo.error == True:
+            raise e
+
         # if dmo has error handler, use it, else use InvalidUsage error
         # 如果 dmo 有 error handler，使用它，否则使用 InvalidUsage 错误
         error_msg = e.errors()[0]
         message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
         if dmo.error:
-            return dmo.error(request, message)
+            return dmo.error(request, e)
         else:
+            error_msg = e.errors()[0]
+            message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
+
             error_logger.error(message)
             raise InvalidUsage(message)
     except Exception as e:
