@@ -72,7 +72,7 @@ def parse_params(
                 if all:
                     for key in all.__fields__:
                         kwargs.pop(key, None)
-                kwargs.update({"params": params})
+                kwargs.update({"params": parsed_args})
             return await f(request, *args, **kwargs)
 
         return decorated_function
