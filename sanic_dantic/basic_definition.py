@@ -1,16 +1,32 @@
-# -*- coding: utf-8 -*-
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
+"""
+FileName: basic_definition.py
+Description:
+Author: Connor Zhang
+CreateTime:  2023-01-23
+"""
+
 from copy import deepcopy
 from inspect import getmro
-from typing import Callable, Type, Union
-from types import FunctionType
+from typing import Any, Callable, Type, Union
+
 
 from pydantic import BaseModel, ValidationError
-from sanic.exceptions import InvalidUsage, ServerError, SanicException
+from sanic.exceptions import InvalidUsage, ServerError
 from sanic.log import error_logger
 from sanic.request import Request
 
 
 class ParsedArgsObj(dict):
+    """
+    ParsedArgsObj inherits from dict and is used to store parsed parameters.
+    When using, you can directly use the attribute to access the parameter.
+
+    ParsedArgsObj 继承自 dict，用于存储解析后的参数。
+    在使用时，可以直接使用属性访问参数。
+    """
+
     def __getattr__(self, item):
         return self.get(item)
 
@@ -22,6 +38,13 @@ class ParsedArgsObj(dict):
 
 
 class DanticModelObj:
+    """
+    Used to parse and judge the parameters of pydantic model,
+    convenient for DanticView and parse_params to use.
+
+    用于解析和判断 pydantic 模型的参数， 方便 DanticView 和 parse_params 使用。
+    """
+
     def __init__(
             self,
             header: Type[BaseModel] = None,
@@ -30,29 +53,35 @@ class DanticModelObj:
             body: Type[BaseModel] = None,
             form: Type[BaseModel] = None,
             all: Type[BaseModel] = None,
-            error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None,
+            error: Union[Callable[[ValidationError], None], bool] = None,
     ) -> None:
         """
-        The param must be a BaseModel class or must inherit from BaseModel \n
-        if listed, the same model name's model will use strict mode
+        :param header: pydantic model for header
+        :param query: pydantic model for query
+        :param path: pydantic model for path
+        :param body: pydantic model for body
+        :param form: pydantic model for form
+        :param all: pydantic model for all
+        :param error: error handler function
+
+        When there are the same parameter name in the model,
         """
 
         try:
+
+            self.header = header
+            self.query = query
+            self.path = path
+            self.body = body
+            self.form = form
+            self.all = all
+            self.error = error
+
             if body and form:
                 raise AssertionError(
                     "sanic-dantic: " +
                     "body and form cannot be used at the same time."
                 )
-
-            self.items = {
-                "header": header,
-                "path": path,
-                "query": query,
-                "form": form,
-                "body": body,
-                "all": all,
-                "error": error
-            }
 
             for model in [header, path, query, form, body, all]:
                 if model and BaseModel not in getmro(model):
@@ -61,67 +90,61 @@ class DanticModelObj:
                         "model must inherited from Pydantic.BaseModel"
                     )
 
-            if error and error is not True and not isinstance(error, FunctionType) and SanicException not in getmro(error):
+            if error and error is not True and not isinstance(error, Callable):
                 raise AssertionError(
                     "sanic-dantic: " +
-                    "error must inherited from SanicException or True or a function"
+                    "the error handler must be a callable function or True"
                 )
 
         except AssertionError as e:
             error_logger.error(e)
             raise ServerError(str(e))
 
-    def __repr__(self):
-        return str(self.items)
 
-
-def validate(
-        request: Request,
-        header: Type[BaseModel] = None,
-        query: Type[BaseModel] = None,
-        path: Type[BaseModel] = None,
-        body: Type[BaseModel] = None,
-        form: Type[BaseModel] = None,
-        all: Type[BaseModel] = None,
-        error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None
-) -> ParsedArgsObj:
+def validate(request: Request, dmo: DanticModelObj) -> Any:
     """
     When there are the same parameter name in the model,
-    the parameter in ParsedArgsObj will be overwritten,
-    The priorities is: body = form > query > path > header
+    the same parameter will be overwritten,
+    to overwrite order is: body = form > query > path > header
+
+    当不同的 model 中存在相同的参数名时，同名的参数会被覆盖，
+    覆盖顺序为：body = form > query > path > header
+    :param request: sanic request
+    :param dmo: DanticModelObj
+    :return: ParsedArgsObj
     """
 
     try:
         parsed_args = ParsedArgsObj()
-        if header:
-            parsed_args.update(header(**request.headers).dict())
 
-        if path:
-            parsed_args.update(path(**request.match_info).dict())
+        if dmo.header:
+            parsed_args.update(dmo.header(**request.headers).dict())
 
-        if query:
+        if dmo.path:
+            parsed_args.update(dmo.path(**request.match_info).dict())
+
+        if dmo.query:
             params = {
-                key: val[0]
-                if len(val) == 1 else val for key, val in request.args.items()
+                key: val[0] if len(val) == 1 else val
+                for key, val in request.args.items()
             }
-            parsed_args.update(query(**params).dict())
+            parsed_args.update(dmo.query(**params).dict())
 
-        if form:
+        if dmo.form:
             form_data = {
-                key: val[0]
-                if len(val) == 1 else val
+                key: val[0] if len(val) == 1 else val
                 for key, val in request.form.items()
             }
-            parsed_args.update(form(**form_data).dict())
+            parsed_args.update(dmo.form(**form_data).dict())
 
-        elif body:
-            parsed_args.update(body(**request.json).dict())
+        elif dmo.body:
+            parsed_args.update(dmo.body(**request.json).dict())
 
 
-        if all:
+        if dmo.all:
             query_params = {
-                key: val[0]
-                if len(val) == 1 else val for key, val in request.args.items()
+                key: val[0] if len(val) == 1 else val
+                for key, val in request.args.items()
             }
             body_params = {}
             try:
@@ -130,8 +153,7 @@ def validate(
                     body_params = {}
             except:
                 body_params = {
-                    key: val[0]
-                    if len(val) == 1 else val
+                    key: val[0] if len(val) == 1 else val
                     for key, val in request.form.items()
                 }
 
@@ -142,25 +164,25 @@ def validate(
             params.update(query_params)
             params.update(body_params)
 
-            parsed_args.update(all(**params).dict())
+            parsed_args.update(dmo.all(**params).dict())
 
     except ValidationError as e:
-        # error handler function of sanic_dantic  >  default InvalidUsage
-        if error:
-            if error == True:
-                raise e
-            elif isinstance(error, FunctionType):
-                error(e)
+        if dmo.error == True:
+            raise e
 
-            error_msg = e.errors()[0]
-            message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
-            raise error(message)
+        # if dmo has error handler, use it, else use InvalidUsage error
+        # 如果 dmo 有 error handler，使用它，否则使用 InvalidUsage 错误
+        error_msg = e.errors()[0]
+        message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
+        if dmo.error:
+            return dmo.error(request, e)
         else:
             error_msg = e.errors()[0]
             message = f'{error_msg.get("loc")[0]} {error_msg.get("msg")}'
+
             error_logger.error(message)
             raise InvalidUsage(message)
     except Exception as e:
-        raise e
+        raise ServerError(str(e))
     request.ctx.params = parsed_args
     return parsed_args

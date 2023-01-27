@@ -1,12 +1,19 @@
-# -*- coding: utf-8 -*-
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
+"""
+FileName: sanic_function_dantic.py
+Description:
+Author: Connor Zhang
+CreateTime:  2023-01-23
+"""
+
 from functools import wraps
-from typing import Callable, Type, Union
+from typing import Callable, Coroutine, Type, Union
 
 from pydantic import ValidationError
-from sanic.exceptions import SanicException
 from sanic.request import Request
 
-from .basic_definition import DanticModelObj, validate, BaseModel
+from .basic_definition import BaseModel, DanticModelObj, validate
 
 
 def parse_params(
@@ -17,27 +24,29 @@ def parse_params(
         form: Type[BaseModel] = None,
         body: Type[BaseModel] = None,
         all: Type[BaseModel] = None,
-        error: Union[Type[SanicException], Callable[[ValidationError], None], bool] = None
+        error: Union[Callable[[ValidationError], None], bool] = None
 ):
     """
-    Sanic Dantic Function View type check decorator, you can use it for any view
+    parameter check decorator, can be used for function view and class view.
+    if methods is None, it will check all request methods.
 
-    It can be used in function-based view:
+    参数检查装饰器，除了可以用于函数式视图，也可以用于类式视图。
+    可以不指定 methods 参数，这样就会对所有请求方法都进行参数检查。
 
-    - you can use it directly without **methods** param
-
-    It's also can be used in Class-based view:
-
-    - **methods** parameter is not required.
-    it will be applicable to all view checks if you don't give
+    :param methods: request methods
+    :param header: pydantic model for header
+    :param query: pydantic model for query
+    :param path: pydantic model for path
+    :param body: pydantic model for body
+    :param form: pydantic model for form
+    :param error: error handler function
     """
 
     def decorator(f):
         @wraps(f)
         async def decorated_function(request, *args, **kwargs):
             _request = [
-                item
-                for item in (request,) + args
+                item for item in (request,) + args
                 if isinstance(item, Request)
             ][0]
 
@@ -54,8 +63,9 @@ def parse_params(
                     all=all,
                     error=error or request.app.config.get('SANIC_DANTIC_ERROR', None),
                 )
-                params = validate(_request, **model_obj.items)
-                # if len(f.__qualname__.split(".")) == 1:
+                parsed_args = validate(_request, model_obj)
+                if isinstance(parsed_args, Coroutine):
+                    return await parsed_args
                 if path:
                     for key in path.__fields__:
                         kwargs.pop(key, None)
