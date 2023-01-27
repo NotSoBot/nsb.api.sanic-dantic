@@ -141,10 +141,10 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
             parsed_args.update(dmo.body(**request.json).dict())
 
 
-        if all:
+        if dmo.all:
             query_params = {
-                key: val[0]
-                if len(val) == 1 else val for key, val in request.args.items()
+                key: val[0] if len(val) == 1 else val
+                for key, val in request.args.items()
             }
             body_params = {}
             try:
@@ -153,8 +153,7 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
                     body_params = {}
             except:
                 body_params = {
-                    key: val[0]
-                    if len(val) == 1 else val
+                    key: val[0] if len(val) == 1 else val
                     for key, val in request.form.items()
                 }
 
@@ -165,7 +164,7 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
             params.update(query_params)
             params.update(body_params)
 
-            parsed_args.update(all(**params).dict())
+            parsed_args.update(dmo.all(**params).dict())
 
     except ValidationError as e:
         if dmo.error == True:
