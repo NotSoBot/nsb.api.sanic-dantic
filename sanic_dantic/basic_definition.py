@@ -19,6 +19,7 @@ from sanic.request import Request
 
 
 class ParsedArgsObj(dict):
+    __fields_set__ = set()
     """
     ParsedArgsObj inherits from dict and is used to store parsed parameters.
     When using, you can directly use the attribute to access the parameter.
@@ -35,6 +36,12 @@ class ParsedArgsObj(dict):
 
     def __deepcopy__(self, memo=None):
         return ParsedArgsObj(deepcopy(dict(self), memo=memo))
+
+    def __combine_base_model__(self, obj: BaseModel):
+        if obj.__fields_set__:
+            self.__fields_set__ = self.__fields_set__.union(obj.__fields_set__)
+        self.update(obj.dict())
+
 
 
 class DanticModelObj:
@@ -118,27 +125,32 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
         parsed_args = ParsedArgsObj()
 
         if dmo.header:
-            parsed_args.update(dmo.header(**request.headers).dict())
+            obj = dmo.header(**request.headers)
+            parsed_args.__combine_base_model__(obj)
 
         if dmo.path:
-            parsed_args.update(dmo.path(**request.match_info).dict())
+            obj = dmo.path(**request.match_info)
+            parsed_args.__combine_base_model__(obj)
 
         if dmo.query:
             params = {
                 key: val[0] if len(val) == 1 else val
                 for key, val in request.args.items()
             }
-            parsed_args.update(dmo.query(**params).dict())
+            obj = dmo.query(**params)
+            parsed_args.__combine_base_model__(obj)
 
         if dmo.form:
             form_data = {
                 key: val[0] if len(val) == 1 else val
                 for key, val in request.form.items()
             }
-            parsed_args.update(dmo.form(**form_data).dict())
+            obj = dmo.form(**form_data)
+            parsed_args.__combine_base_model__(obj)
 
         elif dmo.body:
-            parsed_args.update(dmo.body(**request.json).dict())
+            obj = dmo.body(**request.json)
+            parsed_args.__combine_base_model__(obj)
 
 
         if dmo.all:
@@ -159,13 +171,13 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
 
 
             params = {}
-            params.update(request.headers)
-            params.update(request.match_info)
             params.update(query_params)
             params.update(body_params)
+            params.update(request.headers)
+            params.update(request.match_info)
 
-            parsed_args.update(dmo.all(**params).dict())
-
+            obj = dmo.all(**params)
+            parsed_args.__combine_base_model__(obj)
     except ValidationError as e:
         if dmo.error == True:
             raise e
