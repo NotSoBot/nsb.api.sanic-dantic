@@ -19,7 +19,6 @@ from sanic.request import Request
 
 
 class ParsedArgsObj(dict):
-    __fields_set__ = set()
     """
     ParsedArgsObj inherits from dict and is used to store parsed parameters.
     When using, you can directly use the attribute to access the parameter.
@@ -27,6 +26,9 @@ class ParsedArgsObj(dict):
     ParsedArgsObj 继承自 dict，用于存储解析后的参数。
     在使用时，可以直接使用属性访问参数。
     """
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.__fields_set__ = set()
 
     def __getattr__(self, item):
         return self.get(item)
