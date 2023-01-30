@@ -39,7 +39,7 @@ class ParsedArgsObj(dict):
 
     def __combine_base_model__(self, obj: BaseModel):
         if obj.__fields_set__:
-            self.__fields_set__ = self.__fields_set__.union(obj.__fields_set__)
+            self.__fields_set__ |= obj.__fields_set__
         self.update(obj.dict())
 
 
