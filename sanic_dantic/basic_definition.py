@@ -42,6 +42,11 @@ class ParsedArgsObj(dict):
             self.__fields_set__ |= obj.__fields_set__
         self.update(obj.dict())
 
+    def to_dict(self):
+        obj = dict(self)
+        obj.pop('__fields_set__', None)
+        return obj
+
 
 
 class DanticModelObj:
