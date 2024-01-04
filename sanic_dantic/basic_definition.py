@@ -152,6 +152,16 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
                 key: val[0] if len(val) == 1 else val
                 for key, val in request.form.items()
             }
+            if 'payload_json' in form_data:
+                payload_json = form_data.pop('payload_json')
+                try:
+                    payload_json = json.loads(payload_json)
+                except:
+                    pass
+
+                if isinstance(payload_json, dict):
+                    form_data.update(**payload_json)
+
             obj = dmo.form(**form_data)
             parsed_args.__combine_base_model__(obj)
 
@@ -175,6 +185,15 @@ def validate(request: Request, dmo: DanticModelObj) -> Any:
                     key: val[0] if len(val) == 1 else val
                     for key, val in request.form.items()
                 }
+                if 'payload_json' in body_params:
+                    payload_json = body_params.pop('payload_json')
+                    try:
+                        payload_json = json.loads(payload_json)
+                    except:
+                        pass
+
+                    if isinstance(payload_json, dict):
+                        body_params.update(**payload_json)
 
 
             params = {}
