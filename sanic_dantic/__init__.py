@@ -20,4 +20,4 @@ __all__ = [
     "DanticModelObj"
 ]
 
-__all__ = __all__ + pydantic.__all__
+__all__ = __all__ + list(pydantic.__all__)
